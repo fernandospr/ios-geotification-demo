@@ -21,7 +21,6 @@ class GeotificationsViewController: UIViewController, AddGeotificationsViewContr
 
   override func viewDidLoad() {
     super.viewDidLoad()
-    
     locationManager.delegate = self
     locationManager.requestAlwaysAuthorization()
     loadAllGeotifications()
@@ -33,43 +32,6 @@ class GeotificationsViewController: UIViewController, AddGeotificationsViewContr
       let vc = navigationController.viewControllers.first as! AddGeotificationViewController
       vc.delegate = self
     }
-  }
-  
-  func locationManager(manager: CLLocationManager!, monitoringDidFailForRegion region: CLRegion!, withError error: NSError!) {
-    println("Monitoring failed for region with identifier: \(region.identifier)")
-  }
-  
-  func locationManager(manager: CLLocationManager!, didFailWithError error: NSError!) {
-    println("Location Manager failed with the following error: \(error)")
-  }
-  
-  func startMonitoringGeotification(geotification: Geotification) {
-    if !CLLocationManager.isMonitoringAvailableForClass(CLCircularRegion) {
-      showSimpleAlertWithTitle("Error", message: "Geofencing is not supported on this device!", viewController: self)
-      return
-    }
-    if CLLocationManager.authorizationStatus() != .AuthorizedAlways {
-      showSimpleAlertWithTitle("Warning", message: "Your geotification is saved but will only be activated once you grant Geotify permission to access the device location.", viewController: self)
-    }
-    let region = regionWithGeotification(geotification)
-    locationManager.startMonitoringForRegion(region)
-  }
-  
-  func stopMonitoringGeotification(geotification: Geotification) {
-    for region in locationManager.monitoredRegions {
-      if let circularRegion = region as? CLCircularRegion {
-        if circularRegion.identifier == geotification.identifier {
-          locationManager.stopMonitoringForRegion(circularRegion)
-        }
-      }
-    }
-  }
-  
-  func regionWithGeotification(geotification: Geotification) -> CLCircularRegion {
-    let region = CLCircularRegion(center: geotification.coordinate, radius: geotification.radius, identifier: geotification.identifier)
-    region.notifyOnEntry = (geotification.eventType == .OnEntry)
-    region.notifyOnExit = !region.notifyOnEntry
-    return region
   }
   
   func locationManager(manager: CLLocationManager!, didChangeAuthorizationStatus status: CLAuthorizationStatus) {
@@ -91,13 +53,30 @@ class GeotificationsViewController: UIViewController, AddGeotificationsViewContr
   }
 
   func saveAllGeotifications() {
+    UIApplication.sharedApplication().cancelAllLocalNotifications()
+    
     var items = NSMutableArray()
     for geotification in geotifications {
       let item = NSKeyedArchiver.archivedDataWithRootObject(geotification)
       items.addObject(item)
+      
+      scheduleLocalNotificationWithGeotification(geotification)
     }
     NSUserDefaults.standardUserDefaults().setObject(items, forKey: kSavedItemsKey)
     NSUserDefaults.standardUserDefaults().synchronize()
+  }
+  
+  func scheduleLocalNotificationWithGeotification(geotification: Geotification) {
+    let locNotification = UILocalNotification()
+    locNotification.alertBody = geotification.note
+    locNotification.regionTriggersOnce = false
+    locNotification.region = CLCircularRegion(center: geotification.coordinate,
+                                              radius: geotification.radius,
+                                          identifier: geotification.identifier)
+    locNotification.region.notifyOnEntry = EventType.OnEntry == geotification.eventType;
+    locNotification.region.notifyOnExit = !locNotification.region.notifyOnEntry
+    locNotification.soundName = "Default";
+    UIApplication.sharedApplication().scheduleLocalNotification(locNotification)
   }
 
   // MARK: Functions that update the model/associated views with geotification changes
@@ -132,7 +111,6 @@ class GeotificationsViewController: UIViewController, AddGeotificationsViewContr
     
     let geotification = Geotification(coordinate: coordinate, radius: clampedRadius, identifier: identifier, note: note, eventType: eventType)
     addGeotification(geotification)
-    startMonitoringGeotification(geotification)
     
     saveAllGeotifications()
   }
@@ -172,7 +150,6 @@ class GeotificationsViewController: UIViewController, AddGeotificationsViewContr
   func mapView(mapView: MKMapView!, annotationView view: MKAnnotationView!, calloutAccessoryControlTapped control: UIControl!) {
     // Delete geotification
     var geotification = view.annotation as! Geotification
-    stopMonitoringGeotification(geotification)   // Add this statement
     removeGeotification(geotification)
     saveAllGeotifications()
   }
