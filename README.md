@@ -7,3 +7,13 @@ Demo to show notifications based on user location
 Demo project is based on the following tutorial: http://www.raywenderlich.com/95014/geofencing-ios-swift
 
 Tip: Using the simulator, set the Location to "Apple", create a Geotification, then switch to a custom location (e.g. lat=30.327014, long=-122.031027) to test entering/exiting to the regions. You can also test this by killing the application.
+
+To clone this repository use:
+
+```git clone git@github.com:fernandospr/ios-geotification-demo.git -b geofence-notifications```
+
+To switch branch:
+
+```git checkout location-based-notifications```
+
+```git pull origin location-based-notifications```
